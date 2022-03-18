@@ -6,7 +6,8 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include "cuptiErrorCheck.h"
+#include "cuptiMetrics.h"
 int main(int argc, char* argv[])
 {
 
