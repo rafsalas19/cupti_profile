@@ -38,3 +38,12 @@ do {                                                                           \
         exit(-1);                                                              \
     }                                                                          \
 } while (0)
+
+#define MEMORY_ALLOCATION_CALL(var)                                            \
+do {                                                                            \
+    if (var == NULL) {                                                          \
+        fprintf(stderr, "%s:%d: Error: Memory Allocation Failed \n",            \
+                __FILE__, __LINE__);                                            \
+        exit(EXIT_FAILURE);                                                     \
+    }                                                                           \
+} while (0)
