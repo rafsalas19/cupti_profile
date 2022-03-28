@@ -7,4 +7,5 @@
 *.o
 ./build/*
 ./build
+build
 cupti_profile
