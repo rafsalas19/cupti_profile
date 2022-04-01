@@ -4,18 +4,16 @@
 #include "dlfcn.h" // dlsym, RTLD_NEXT
 #include "../include/cuptiErrorCheck.h"
 #include "../include/cuptiMetrics.h"
-#include "cuda.h"
-#include "cuda_runtime_api.h"
-#include "cupti_callbacks.h"
-#include "cupti_profiler_target.h"
-#include "cupti_driver_cbid.h"
-#include "cupti_target.h"
-#include "nvperf_host.h"
+#include "../include/profileSession.h"
 
 #include <vector>
 #include <mutex>
 #include <string>
 
+#include "cupti_driver_cbid.h"
+#include "cupti_callbacks.h"
+#include "cupti_profiler_target.h"
+#include "cupti_target.h"
 
 
 
@@ -36,35 +34,35 @@ extern "C"
 
 using namespace std;
 
-// List of metrics to collect
-vector<string> metricNames;
-
 static bool injectionInitialized = false;
 
+ProfileSession profSession;
 extern "C" DLLEXPORT int InitializeInjection()
 {
 
-    if (injectionInitialized == false)
-    {
-        injectionInitialized = true;
+	
+	if (injectionInitialized == false)
+	{
+		injectionInitialized = true;
 
-        cout << "Hello world from the injection library" << endl;
+		Metrics::metricList mlist = Metrics::get_metricList();
 
-	Metrics::metricList mlist = Metrics::get_metricList();
+		for( Metrics::metricList::iterator i= mlist.begin(); i != mlist.end(); i++){
+			//profData->metricNames.push_back(i->second);
+			profSession.addMetric(i->second);
+		}
+		
+		profSession.subscribeCB();
 
-	for( Metrics::metricList::iterator i= mlist.begin(); i != mlist.end(); i++){
-		metricNames.push_back(i->second);
 	}
-	for (int i =0;i<metricNames.size();++i){
-		cout<<metricNames[i]<<endl;
-	}
-    }
 
-    return 1;
+	
+	return 1;
 }
 
 extern "C" DLLEXPORT void * dlsym(void * handle, char const * symbol)
 {
+
     InitializeInjection();
 
     typedef void * (*dlsym_fn)(void *, char const *);
