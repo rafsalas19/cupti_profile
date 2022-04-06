@@ -15,12 +15,89 @@
 #include "cupti_target.h"
 #include "../include/cuptiMetrics.h"
 
-
-
 using namespace std;
 
+mutex ctx_data_mutex;
 
+unordered_map<CUcontext, ctxProfilerData> ctx_data_map;
 
+void initialize_ctx_data(ctxProfilerData &ctx_data){
+	// CUPTI Profiler API + NVPWinitialization
+	try{
+		
+		static int profiler_initialized = 0;
+		if (profiler_initialized == 0){//init only once
+			CUpti_Profiler_Initialize_Params profInitParams = { CUpti_Profiler_Initialize_Params_STRUCT_SIZE };
+			CUPTI_API_CALL(cuptiProfilerInitialize(&profInitParams));
+			NVPW_InitializeHost_Params initHostParams = { NVPW_InitializeHost_Params_STRUCT_SIZE };
+			NVPW_API_CALL(NVPW_InitializeHost(&initHostParams));
+			profiler_initialized = 1;
+		}
+		
+		// Get size of counterAvailabilityImage - in first pass, GetCounterAvailability return size needed for data
+		CUpti_Profiler_GetCounterAvailability_Params getCounterAvailabilityParams = { CUpti_Profiler_GetCounterAvailability_Params_STRUCT_SIZE };
+		getCounterAvailabilityParams.ctx = ctx_data.ctx;
+		CUPTI_API_CALL(cuptiProfilerGetCounterAvailability(&getCounterAvailabilityParams));
+		// Allocate sized counterAvailabilityImage
+		ctx_data.counterAvailabilityImage.resize(getCounterAvailabilityParams.counterAvailabilityImageSize);
+		 // Initialize counterAvailabilityImage
+		getCounterAvailabilityParams.pCounterAvailabilityImage = ctx_data.counterAvailabilityImage.data();
+		CUPTI_API_CALL(cuptiProfilerGetCounterAvailability(&getCounterAvailabilityParams));
+		
+		if(!Metrics::configureConfigImage(ctx_data,metricNames)){
+			throw std::runtime_error("Failed to create configImage/counterDataPrefixImage for context");
+		}
+		
+		// Record counterDataPrefixImage info and other options for sizing the counterDataImage
+		ctx_data.counterDataImageOptions.pCounterDataPrefix = ctx_data.counterDataPrefixImage.data();
+		ctx_data.counterDataImageOptions.counterDataPrefixSize = ctx_data.counterDataPrefixImage.size();
+		ctx_data.counterDataImageOptions.maxNumRanges = ctx_data.maxNumRanges;
+		ctx_data.counterDataImageOptions.maxNumRangeTreeNodes = ctx_data.maxNumRanges;
+		ctx_data.counterDataImageOptions.maxRangeNameLength = ctx_data.maxRangeNameLength;
+
+		// Calculate size of counterDataImage based on counterDataPrefixImage and options
+		CUpti_Profiler_CounterDataImage_CalculateSize_Params calculateSizeParams = { CUpti_Profiler_CounterDataImage_CalculateSize_Params_STRUCT_SIZE };
+		calculateSizeParams.pOptions = &(ctx_data.counterDataImageOptions);
+		calculateSizeParams.sizeofCounterDataImageOptions = CUpti_Profiler_CounterDataImageOptions_STRUCT_SIZE;
+		CUPTI_API_CALL(cuptiProfilerCounterDataImageCalculateSize(&calculateSizeParams));
+		// Create counterDataImage
+		ctx_data.counterDataImage.resize(calculateSizeParams.counterDataImageSize);
+
+		// Initialize counterDataImage inside start_session
+		CUpti_Profiler_CounterDataImage_Initialize_Params initializeParams = { CUpti_Profiler_CounterDataImage_Initialize_Params_STRUCT_SIZE };
+		initializeParams.pOptions = &(ctx_data.counterDataImageOptions);
+		initializeParams.sizeofCounterDataImageOptions = CUpti_Profiler_CounterDataImageOptions_STRUCT_SIZE;
+		initializeParams.counterDataImageSize = ctx_data.counterDataImage.size();
+		initializeParams.pCounterDataImage = ctx_data.counterDataImage.data();
+		CUPTI_API_CALL(cuptiProfilerCounterDataImageInitialize(&initializeParams));
+
+		// Calculate scratchBuffer size based on counterDataImage size and counterDataImage
+		CUpti_Profiler_CounterDataImage_CalculateScratchBufferSize_Params scratchBufferSizeParams = { CUpti_Profiler_CounterDataImage_CalculateScratchBufferSize_Params_STRUCT_SIZE };
+		scratchBufferSizeParams.counterDataImageSize = ctx_data.counterDataImage.size();
+		scratchBufferSizeParams.pCounterDataImage = ctx_data.counterDataImage.data();
+		CUPTI_API_CALL(cuptiProfilerCounterDataImageCalculateScratchBufferSize(&scratchBufferSizeParams));
+		// Create counterDataScratchBuffer
+		ctx_data.counterDataScratchBufferImage.resize(scratchBufferSizeParams.counterDataScratchBufferSize);
+
+		// Initialize counterDataScratchBuffer
+		CUpti_Profiler_CounterDataImage_InitializeScratchBuffer_Params initScratchBufferParams = { CUpti_Profiler_CounterDataImage_InitializeScratchBuffer_Params_STRUCT_SIZE };
+		initScratchBufferParams.counterDataImageSize = ctx_data.counterDataImage.size();
+		initScratchBufferParams.pCounterDataImage = ctx_data.counterDataImage.data();
+		initScratchBufferParams.counterDataScratchBufferSize = ctx_data.counterDataScratchBufferImage.size();;
+		initScratchBufferParams.pCounterDataScratchBuffer = ctx_data.counterDataScratchBufferImage.data();
+		CUPTI_API_CALL(cuptiProfilerCounterDataImageInitializeScratchBuffer(&initScratchBufferParams));
+		
+	
+	}
+	catch(exception& e ){
+		cout << e.what() << endl;
+		exit(EXIT_FAILURE);
+	}
+	catch(... ){
+		cout << "unknown failure" << endl;
+		exit(EXIT_FAILURE);
+	}
+}
 
 
 void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, void const * cbdata){
@@ -48,8 +125,7 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
 			if (data.dev_prop.major >= 7) //check compute capability 
             {
                ctx_data_map[ctx] = data;
-               //initialize_ctx_data(ctx_data_map[ctx]);
-			   //initialize_ctx_data();
+               initialize_ctx_data(ctx_data_map[ctx]);
             }
             else if (ctx_data_map.count(ctx))
             {

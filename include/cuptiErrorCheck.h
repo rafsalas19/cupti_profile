@@ -1,11 +1,11 @@
 #pragma once
+#include <exception>
+#include <string>
 #define NVPW_API_CALL(apiFuncCall)                                             \
 do {                                                                           \
     NVPA_Status _status = apiFuncCall;                                         \
     if (_status != NVPA_STATUS_SUCCESS) {                                      \
-        fprintf(stderr, "%s:%d: error: function %s failed with error %d.\n",   \
-                __FILE__, __LINE__, #apiFuncCall, _status);                    \
-        exit(-1);                                                              \
+        throw std::runtime_error("Function " + std::string(#apiFuncCall)+" "  +  to_string (_status));        \
     }                                                                          \
 } while (0)
 
@@ -13,9 +13,7 @@ do {                                                                           \
 do {                                                                           \
     CUptiResult _status = apiFuncCall;                                         \
     if (_status != CUPTI_SUCCESS) {                                            \
-        fprintf(stderr, "%s:%d: error: function %s failed with error %d.\n",   \
-                __FILE__, __LINE__, #apiFuncCall, _status);                    \
-        exit(-1);                                                              \
+         throw std::runtime_error("Function " + std::string(#apiFuncCall)+" "  +  to_string (_status));       \
     }                                                                          \
 } while (0)
 
@@ -23,36 +21,30 @@ do {                                                                           \
 do {                                                                           \
     CUresult _status = apiFuncCall;                                            \
     if (_status != CUDA_SUCCESS) {                                             \
-        fprintf(stderr, "%s:%d: error: function %s failed with error %d.\n",   \
-                __FILE__, __LINE__, #apiFuncCall, _status);                    \
-        exit(-1);                                                              \
+        throw std::runtime_error("Function " + std::string(#apiFuncCall)+" "  +  to_string (_status));		   \
     }                                                                          \
 } while (0)
 
-#define RUNTIME_API_CALL(apiFuncCall)                                          \
-do {                                                                           \
-    cudaError_t _status = apiFuncCall;                                         \
-    if (_status != cudaSuccess) {                                              \
-        fprintf(stderr, "%s:%d: error: function %s failed with error %s.\n",   \
-                __FILE__, __LINE__, #apiFuncCall, cudaGetErrorString(_status));\
-        exit(-1);                                                              \
-    }                                                                          \
-} while (0)
+#define RUNTIME_API_CALL(apiFuncCall)                                          				\
+do {                                                                           				\
+    cudaError_t _status = apiFuncCall;                                         				\
+    if (_status != cudaSuccess) {                                              				\
+       throw std::runtime_error("Function " + std::string(#apiFuncCall)+" " +  cudaGetErrorString(_status)); 	\
+    }                                                                         				\
+} while (0)                                                                     			
 
-#define MEMORY_ALLOCATION_CALL(var)                                            \
+#define MEMORY_ALLOCATION_CALL(var)                                             \
 do {                                                                            \
     if (var == NULL) {                                                          \
-        fprintf(stderr, "%s:%d: Error: Memory Allocation Failed \n",            \
-                __FILE__, __LINE__);                                            \
-        exit(EXIT_FAILURE);                                                     \
+        throw std::runtime_error("Error: Memory Allocation Failed \n");  		\
     }                                                                           \
 } while (0)
 
-#define NVPW_ERROR_CHECK(retval, actual)                                        \
-do {                                                                                \
-    NVPA_Status status = actual;                                                    \
-    if (NVPA_STATUS_SUCCESS != status) {                                            \
-        fprintf(stderr, "FAILED: %s with error %s\n", #actual, NV::Metric::Utils::GetNVPWResultString(status)); \
-        return retval;                                                              \
-    }                                                                               \
+#define NVPW_ERROR_CHECK(apiFuncCall)                                        						\
+do {                                                                                				\
+    NVPA_Status _status = apiFuncCall;                                                    			\
+    if (NVPA_STATUS_SUCCESS != _status) {                                            				\
+        throw std::runtime_error("Failed " + std::string(#apiFuncCall) + " " + to_string(_status)); \
+    }                                                                               				\
 } while (0)
+	
