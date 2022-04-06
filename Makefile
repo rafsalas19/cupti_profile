@@ -22,25 +22,14 @@ directories: ${OUTDIR}
 ${OUTDIR}:
 	${MKDIR_P} ${OUTDIR}
 
-
-
 cupti_profile: main.o 
 	nvcc $(NVCCFLAGS) -o $(OUTDIR)/$@ $(OUTDIR)/$^ $(LIBS) $(INCLUDES)
 
 main.o: main.cu
 	nvcc $(NVCCFLAGS) -c $(INCLUDES) $(LIBS) $< -o $(OUTDIR)/$@
 
-libcuProfile.so:$(SRC)/injection.cpp  $(SRC)/profileSession.cpp ./include/profileSession.h
-	nvcc $(SRC)/injection.cpp $(SRC)/profileSession.cpp -lcuda -lcupti -lnvperf_host -lnvperf_target  $(INCLUDES) $(LIBS) -Ldl -Xcompiler -fPIC --shared -o $(OUTDIR)/$@ 
-
-#$(OUTDIR)/injection.o
-#$(OUTDIR)/injection.o: $(SRC)/injection.cpp 
-#	nvcc -c $< $(NVCCFLAGS) $(INCLUDES) $(LIBS) -o $@ -Ldl -Xcompiler -fPIC --shared
-
-
-#$(OUTDIR)/profileSession.o: $(SRC)/profileSession.cpp ./include/profileSession.h
-#	nvcc -c $< $(NVCCFLAGS) $(INCLUDES) $(LIBS) -o $@
-
+libcuProfile.so:$(SRC)/injection.cpp  $(SRC)/profileSession.cpp ./include/profileSession.h ./include/cuptiMetrics.h
+	nvcc $(SRC)/injection.cpp $(SRC)/profileSession.cpp $(SRC)/cuptiMetrics.cpp -lcuda -lcupti -lnvperf_host -lnvperf_target  $(INCLUDES) $(LIBS) -Ldl -Xcompiler -fPIC --shared -o $(OUTDIR)/$@ 
 
 clean:
 	rm -f $(OUTDIR)/cupti_profile $(OUTDIR)/*.o  $(OUTDIR)/*.so

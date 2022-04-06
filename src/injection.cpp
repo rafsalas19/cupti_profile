@@ -16,7 +16,7 @@
 #include "cupti_target.h"
 
 
-
+std::vector<std::string> metricNames;
 
 extern "C"
 {
@@ -36,7 +36,9 @@ using namespace std;
 
 static bool injectionInitialized = false;
 
-ProfileSession profSession;
+
+
+
 extern "C" DLLEXPORT int InitializeInjection()
 {
 
@@ -48,11 +50,10 @@ extern "C" DLLEXPORT int InitializeInjection()
 		Metrics::metricList mlist = Metrics::get_metricList();
 
 		for( Metrics::metricList::iterator i= mlist.begin(); i != mlist.end(); i++){
-			//profData->metricNames.push_back(i->second);
-			profSession.addMetric(i->second);
+			metricNames.push_back(i->second);
 		}
 		
-		profSession.subscribeCB();
+		subscribeCB();
 
 	}
 

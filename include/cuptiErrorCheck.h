@@ -47,3 +47,12 @@ do {                                                                            
         exit(EXIT_FAILURE);                                                     \
     }                                                                           \
 } while (0)
+
+#define NVPW_ERROR_CHECK(retval, actual)                                        \
+do {                                                                                \
+    NVPA_Status status = actual;                                                    \
+    if (NVPA_STATUS_SUCCESS != status) {                                            \
+        fprintf(stderr, "FAILED: %s with error %s\n", #actual, NV::Metric::Utils::GetNVPWResultString(status)); \
+        return retval;                                                              \
+    }                                                                               \
+} while (0)
