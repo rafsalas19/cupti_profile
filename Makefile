@@ -28,8 +28,8 @@ cupti_profile: main.o
 main.o: main.cu
 	nvcc $(NVCCFLAGS) -c $(INCLUDES) $(LIBS) $< -o $(OUTDIR)/$@
 
-libcuProfile.so:$(SRC)/injection.cpp  $(SRC)/profileSession.cpp ./include/profileSession.h ./include/cuptiMetrics.h
-	nvcc $(SRC)/injection.cpp $(SRC)/profileSession.cpp $(SRC)/cuptiMetrics.cpp -lcuda -lcupti -lnvperf_host -lnvperf_target  $(INCLUDES) $(LIBS) -Ldl -Xcompiler -fPIC --shared -o $(OUTDIR)/$@ 
+libcuProfile.so:$(SRC)/* ./include/profileSession.h ./include/cuptiMetrics.h ./include/utils.h
+	nvcc $(SRC)/* -lcuda -lcupti -lnvperf_host -lnvperf_target  $(INCLUDES) $(LIBS) -Ldl -Xcompiler -fPIC --shared -o $(OUTDIR)/$@ 
 
 clean:
 	rm -f $(OUTDIR)/cupti_profile $(OUTDIR)/*.o  $(OUTDIR)/*.so

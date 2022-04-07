@@ -13,7 +13,9 @@ do {                                                                           \
 do {                                                                           \
     CUptiResult _status = apiFuncCall;                                         \
     if (_status != CUPTI_SUCCESS) {                                            \
-         throw std::runtime_error("Function " + std::string(#apiFuncCall)+" "  +  to_string (_status));       \
+		const char *errstr;													   \
+		cuptiGetResultString(_status,&errstr);										   \
+        throw std::runtime_error("Function " + std::string(#apiFuncCall)+ " " +  std::string(errstr));       \
     }                                                                          \
 } while (0)
 
@@ -44,7 +46,8 @@ do {                                                                            
 do {                                                                                				\
     NVPA_Status _status = apiFuncCall;                                                    			\
     if (NVPA_STATUS_SUCCESS != _status) {                                            				\
-        throw std::runtime_error("Failed " + std::string(#apiFuncCall) + " " + to_string(_status)); \
+        throw std::runtime_error("Failed " + std::string(#apiFuncCall) + " " + to_string(_status)+", look up error code in nvperf_common.h enum NVPA_Status"); \
     }                                                                               				\
 } while (0)
-	
+
+

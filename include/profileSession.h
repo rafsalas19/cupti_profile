@@ -46,9 +46,10 @@ struct ctxProfilerData
     int             curRanges;
     int             maxRangeNameLength;
     int             iterations; // Count of sessions
+	CUpti_ProfilerRange profilerRange;// CUPTI_AutoRange or CUPTI_UserRange;
 
     // Initialize fields, with env var overrides
-    ctxProfilerData() : curRanges(), maxRangeNameLength(64), iterations()
+    ctxProfilerData() : curRanges(), maxRangeNameLength(64), iterations(),profilerRange(CUPTI_AutoRange)
     {
         char * env_var = getenv("INJECTION_KERNEL_COUNT");
         if (env_var != NULL)
@@ -69,19 +70,19 @@ struct ctxProfilerData
 };
 
 extern std::vector<std::string> metricNames;
-	
-void endSession();
+
+void startSession(ctxProfilerData &ctx_data);
+
+void endSession(ctxProfilerData &ctx_data);
 	
 void subscribeCB();
-	
-//void addMetric(std::string metric){ metricNames.push_back(metric);}	
-	
 	
 void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, void const * cbdata);
 
 void exitCB();
+		
 	
-	
+void print_context(const ctxProfilerData &ctx_data);
 	
 extern mutex ctx_data_mutex;
 	

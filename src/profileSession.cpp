@@ -21,6 +21,14 @@ mutex ctx_data_mutex;
 
 unordered_map<CUcontext, ctxProfilerData> ctx_data_map;
 
+
+void print_context(const ctxProfilerData &ctx_data){
+	cout << endl << "Context " << ctx_data.ctx << ", device " << ctx_data.dev_id << " (" << ctx_data.dev_prop.name << ") session " << ctx_data.iterations << ":" << endl;
+    //PrintMetricValues(ctx_data.dev_prop.name, ctx_data.counterDataImage, metricNames, ctx_data.counterAvailabilityImage.data());
+	
+}
+
+
 void initialize_ctx_data(ctxProfilerData &ctx_data){
 	// CUPTI Profiler API + NVPWinitialization
 	try{
@@ -99,11 +107,48 @@ void initialize_ctx_data(ctxProfilerData &ctx_data){
 	}
 }
 
-
 void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, void const * cbdata){
 	
     if (domain == CUPTI_CB_DOMAIN_DRIVER_API){
-		cout << "Hello world from the injection library CB: CUPTI_CB_DOMAIN_DRIVER_API" << endl;
+		//kernel launch
+        if (cbid == CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel)
+        {
+			CUpti_CallbackData const * data = static_cast<CUpti_CallbackData const *>(cbdata);
+            CUcontext ctx = data->context;
+			// On entry, enable / update profiling as needed
+            if (data->callbackSite == CUPTI_API_ENTER)
+            {
+                // Check for this context in the configured contexts
+                // If not configured, it isn't compatible with profiling
+                ctx_data_mutex.lock();
+                if (ctx_data_map.count(ctx) > 0)
+                {
+                    // If at maximum number of ranges, end session and reset
+                    if (ctx_data_map[ctx].curRanges == ctx_data_map[ctx].maxNumRanges)
+                    {
+                        endSession(ctx_data_map[ctx]);
+						cout << "End CUPTI_CB_DOMAIN_DRIVER_API: ";
+						print_context(ctx_data_map[ctx]);
+                        ctx_data_map[ctx].curRanges = 0;
+                    }
+
+                    // If no currently enabled session on this context, start one
+                    if (ctx_data_map[ctx].curRanges == 0)
+                    {
+                        initialize_ctx_data(ctx_data_map[ctx]);
+                        startSession(ctx_data_map[ctx]);
+                    }
+
+                    // Increment curRanges
+                    ctx_data_map[ctx].curRanges++;
+                }
+                ctx_data_mutex.unlock();			
+			}
+
+		}
+		
+		
+
 	}
 	else if (domain == CUPTI_CB_DOMAIN_RESOURCE){
 	
@@ -126,6 +171,8 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
             {
                ctx_data_map[ctx] = data;
                initialize_ctx_data(ctx_data_map[ctx]);
+			   cout << "CUPTI_CB_DOMAIN_RESOURCE: ";
+			   print_context(ctx_data_map[ctx]);
             }
             else if (ctx_data_map.count(ctx))
             {
@@ -135,22 +182,108 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
 		}
 		
 	  
-		cout << "Hello world from the injection library CB: CUPTI_CB_DOMAIN_RESOURCE" << endl;
+		
 	}		
 }
 
-void startSession(){}
+void startSession(ctxProfilerData &ctx_data){
+	try	
+	{
+		CUpti_Profiler_BeginSession_Params beginSessionParams = { CUpti_Profiler_BeginSession_Params_STRUCT_SIZE };
+		beginSessionParams.counterDataImageSize = ctx_data.counterDataImage.size();
+		beginSessionParams.pCounterDataImage = ctx_data.counterDataImage.data();
+		beginSessionParams.counterDataScratchBufferSize = ctx_data.counterDataScratchBufferImage.size();
+		beginSessionParams.pCounterDataScratchBuffer = ctx_data.counterDataScratchBufferImage.data();
+		beginSessionParams.ctx = ctx_data.ctx;
+		beginSessionParams.maxLaunchesPerPass = ctx_data.maxNumRanges;
+		beginSessionParams.maxRangesPerPass = ctx_data.maxNumRanges;
+		beginSessionParams.pPriv = NULL;
+		beginSessionParams.range = ctx_data.profilerRange;
+		beginSessionParams.replayMode = CUPTI_KernelReplay;
+		CUPTI_API_CALL(cuptiProfilerBeginSession(&beginSessionParams));
 
-void endSession(){}
+		CUpti_Profiler_SetConfig_Params setConfigParams = { CUpti_Profiler_SetConfig_Params_STRUCT_SIZE };
+		setConfigParams.pConfig = ctx_data.configImage.data();
+		setConfigParams.configSize = ctx_data.configImage.size();
+		setConfigParams.passIndex = 0; // Only set for Application Replay mode
+		setConfigParams.minNestingLevel = 1;
+		setConfigParams.numNestingLevels = 1;
+		setConfigParams.targetNestingLevel = 1;
+		CUPTI_API_CALL(cuptiProfilerSetConfig(&setConfigParams));
 
-void exitCB(){}
+		CUpti_Profiler_EnableProfiling_Params enableProfilingParams = { CUpti_Profiler_EnableProfiling_Params_STRUCT_SIZE };
+		enableProfilingParams.ctx = ctx_data.ctx;
+		CUPTI_API_CALL(cuptiProfilerEnableProfiling(&enableProfilingParams));
+
+		ctx_data.iterations++;
+	}
+	catch(exception& e ){
+		cout << e.what() << endl;
+		exit(EXIT_FAILURE);
+	}
+	catch(... ){
+		cout << "unknown failure" << endl;
+		exit(EXIT_FAILURE);
+	}	
+	
+}
+
+void endSession(ctxProfilerData &ctx_data){
+	try{
+		CUpti_Profiler_DisableProfiling_Params disableProfilingParams = { CUpti_Profiler_DisableProfiling_Params_STRUCT_SIZE };
+		disableProfilingParams.ctx = ctx_data.ctx;
+		CUPTI_API_CALL(cuptiProfilerDisableProfiling(&disableProfilingParams));
+
+		CUpti_Profiler_UnsetConfig_Params unsetConfigParams = { CUpti_Profiler_UnsetConfig_Params_STRUCT_SIZE };
+		unsetConfigParams.ctx = ctx_data.ctx;
+		CUPTI_API_CALL(cuptiProfilerUnsetConfig(&unsetConfigParams));
+
+		CUpti_Profiler_EndSession_Params endSessionParams = { CUpti_Profiler_EndSession_Params_STRUCT_SIZE };
+		endSessionParams.ctx = ctx_data.ctx;
+		CUPTI_API_CALL(cuptiProfilerEndSession(&endSessionParams));
+
+		// Clear counterDataImage 
+		CUpti_Profiler_CounterDataImage_Initialize_Params initializeParams = { CUpti_Profiler_CounterDataImage_Initialize_Params_STRUCT_SIZE };
+		initializeParams.pOptions = &(ctx_data.counterDataImageOptions);
+		initializeParams.sizeofCounterDataImageOptions = CUpti_Profiler_CounterDataImageOptions_STRUCT_SIZE;
+		initializeParams.counterDataImageSize = ctx_data.counterDataImage.size();
+		initializeParams.pCounterDataImage = ctx_data.counterDataImage.data();
+		CUPTI_API_CALL(cuptiProfilerCounterDataImageInitialize(&initializeParams));
+	}
+	catch(exception& e ){
+		cout << e.what() << endl;
+		exit(EXIT_FAILURE);
+	}
+	catch(... ){
+		cout << "unknown failure" << endl;
+		exit(EXIT_FAILURE);
+	}	
+}
+
+void exitCB(){
+	
+	/*ctx_data_mutex.lock();
+
+    for (auto itr = ctx_data_map.begin(); itr != ctx_data_map.end(); ++itr)
+    {
+        ctxProfilerData &data = itr->second;
+
+        if (data.curRanges > 0)
+        {
+            data.curRanges = 0;
+        }
+    }
+
+    ctx_data_mutex.unlock();*/
+	
+}
 
 void subscribeCB(){
 		CUpti_SubscriberHandle subscriber;
     	CUPTI_API_CALL(cuptiSubscribe(&subscriber, (CUpti_CallbackFunc)(callback), NULL));
     	CUPTI_API_CALL(cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_CONTEXT_CREATED));
     	CUPTI_API_CALL(cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel));
-    	
+   	
 	// Register callback for application exit
     	atexit(exitCB);	
 }

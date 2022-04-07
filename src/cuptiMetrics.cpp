@@ -21,9 +21,8 @@ namespace Metrics{
 	}
 	
 	bool metricCheck(const string& metricName){
-		//code to make sure that the requested metric is acceptable
-		 
-			return true;
+		//code to make sure that the requested metric is acceptable		 
+		return true;
 	}
 	//need to add error checking
 	bool getMetricRequests(ctxProfilerData &ctx_data,const std::vector<std::string>& metricNames,vector<NVPA_RawMetricRequest> &rawMetricRequests){
@@ -144,9 +143,7 @@ namespace Metrics{
 			ctx_data.configImage.resize(getConfigImageParams.bytesCopied);
 			getConfigImageParams.bytesAllocated = ctx_data.configImage.size();
 			getConfigImageParams.pBuffer = ctx_data.configImage.data();
-			NVPW_ERROR_CHECK( NVPW_RawMetricsConfig_GetConfigImage(&getConfigImageParams));
-			
-			
+			NVPW_ERROR_CHECK( NVPW_RawMetricsConfig_GetConfigImage(&getConfigImageParams));		
 			
 			//counter data prefix set up
 			NVPW_CUDA_CounterDataBuilder_Create_Params counterDataBuilderCreateParams = { NVPW_CUDA_CounterDataBuilder_Create_Params_STRUCT_SIZE };
@@ -194,3 +191,35 @@ namespace Metrics{
 	}
 
 }
+	
+CuptiMetrics::CuptiMetrics():metricToPWFormula(&Metrics::_metricToPWFormula),metricCodeMap(&Metrics::_metricCodeMap){
+
+}
+
+bool CuptiMetrics::validMetric(string metric){
+	if ( metricToPWFormula->find(metric) == metricToPWFormula->end() ) {
+		return false;
+	} 
+	else {
+		return true;
+	}
+}
+
+string CuptiMetrics::getFormula(int metricCode){
+	if ( metricCodeMap->find(metricCode) != metricCodeMap->end() ){
+		return getFormula((*metricCodeMap)[metricCode]);
+	} 
+	else {
+		throw std::runtime_error("metric code "+ to_string(metricCode) +" not found"); 
+	}
+}
+
+string CuptiMetrics::getFormula(string metric){
+	if ( metricToPWFormula->find(metric) != metricToPWFormula->end() ){
+		return (*metricToPWFormula)[metric];
+	} 
+	else {
+		throw std::runtime_error("metric not found"); 
+	}
+}
+
