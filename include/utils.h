@@ -1,5 +1,7 @@
 #pragma once
 
 struct ctxProfilerData;
+#include <vector>
+#include <string>
 
-void printMetricsfromContextData(ctxProfilerData);
+bool getMetricsDatafromContextData(const ctxProfilerData &ctx,const std::vector<std::string>& metricNames);

@@ -7,29 +7,14 @@
 #include <stdlib.h>
 
 #include <iostream>
-using ::std::cerr;
-using ::std::cout;
-using ::std::endl;
-
 #include <mutex>
-using ::std::mutex;
-
 #include <string>
-using ::std::string;
-
 #include <vector>
-using ::std::vector;
-
 #include <unordered_map>
-using ::std::unordered_map;
-
-#include <unordered_set>
-using ::std::unordered_set;
-
 #include <iostream>
 #include<utility>
-
-using ::std::pair;
+#include "../include/cuptiMetrics.h"
+using namespace std;
 
 struct ctxProfilerData
 {
@@ -49,7 +34,7 @@ struct ctxProfilerData
 	CUpti_ProfilerRange profilerRange;// CUPTI_AutoRange or CUPTI_UserRange;
 
     // Initialize fields, with env var overrides
-    ctxProfilerData() : curRanges(), maxRangeNameLength(64), iterations(),profilerRange(CUPTI_AutoRange)
+    ctxProfilerData() : curRanges(), maxRangeNameLength(128), iterations(),profilerRange(CUPTI_AutoRange)
     {
         char * env_var = getenv("INJECTION_KERNEL_COUNT");
         if (env_var != NULL)
@@ -68,6 +53,9 @@ struct ctxProfilerData
         }
     };
 };
+
+extern CuptiMetrics cupMetrics;
+
 
 extern std::vector<std::string> metricNames;
 

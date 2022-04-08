@@ -5,6 +5,7 @@
 #include "../include/cuptiErrorCheck.h"
 #include "../include/cuptiMetrics.h"
 #include "../include/profileSession.h"
+#include "../include/PWMetrics.h"
 
 #include <vector>
 #include <mutex>
@@ -14,9 +15,6 @@
 #include "cupti_callbacks.h"
 #include "cupti_profiler_target.h"
 #include "cupti_target.h"
-
-
-std::vector<std::string> metricNames;
 
 extern "C"
 {
@@ -50,7 +48,7 @@ extern "C" DLLEXPORT int InitializeInjection()
 		Metrics::metricList mlist = Metrics::get_metricList();
 
 		for( Metrics::metricList::iterator i= mlist.begin(); i != mlist.end(); i++){
-			metricNames.push_back(i->second);
+			cupMetrics.getMetricVector()->push_back(i->second);
 		}
 		
 		subscribeCB();

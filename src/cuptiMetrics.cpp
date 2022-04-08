@@ -2,30 +2,50 @@
 #include "../include/cuptiMetrics.h"
 #include "../include/profileSession.h"
 #include "../include/cuptiErrorCheck.h"
+#include "../include/PWMetrics.h"
+#include <nvperf_host.h>
+#include <nvperf_cuda_host.h>
+#include <nvperf_target.h>
+#include <iomanip>
+using namespace std;
+
 
 
 //mirroring nvidia cupti sample extension. Specificly Metrics portion
 
-namespace Metrics{
-	
-	metricList get_metricList(){
-		metricList metrics=
-		{
-		        {1, "sm__warps_active.avg.pct_of_peak_sustained_active"},
-        		{2, "dram__bytes_read.sum.per_second"},
-        		{3, "smsp__thread_inst_executed_per_inst_executed.ratio"},
-		
-		};
-		
-		return metrics;
-	}
-	
-	bool metricCheck(const string& metricName){
-		//code to make sure that the requested metric is acceptable		 
+CuptiMetrics::CuptiMetrics():metricToPWFormula(&Metrics::_metricToPWFormula),metricCodeMap(&Metrics::_metricCodeMap){
+
+}
+
+bool CuptiMetrics::validMetric(string metric){
+	if ( metricToPWFormula->find(metric) == metricToPWFormula->end() ) {
+		return false;
+	} 
+	else {
 		return true;
 	}
+}
+
+string CuptiMetrics::getFormula(int metricCode){
+	if ( metricCodeMap->find(metricCode) != metricCodeMap->end() ){
+		return getFormula((*metricCodeMap)[metricCode]);
+	} 
+	else {
+		throw std::runtime_error("metric code "+ to_string(metricCode) +" not found"); 
+	}
+}
+
+string CuptiMetrics::getFormula(string metric){
+	if ( metricToPWFormula->find(metric) != metricToPWFormula->end() ){
+		return (*metricToPWFormula)[metric];
+	} 
+	else {
+		throw std::runtime_error("metric not found"); 
+	}
+}
+
 	//need to add error checking
-	bool getMetricRequests(ctxProfilerData &ctx_data,const std::vector<std::string>& metricNames,vector<NVPA_RawMetricRequest> &rawMetricRequests){
+bool CuptiMetrics::getMetricRequests(ctxProfilerData &ctx_data, vector<NVPA_RawMetricRequest> &rawMetricRequests){
 		//vector<NVPA_RawMetricRequest> rawMetricRequests;
 		auto chipName=ctx_data.dev_prop.name;
 		auto cntrAvailImg=ctx_data.counterAvailabilityImage.data();
@@ -49,7 +69,7 @@ namespace Metrics{
 		for (auto& metricName : metricNames)
 		{
 			//check if valid metric
-			metricCheck(metricName);
+			validMetric(metricName);
 					
 			NVPW_MetricEvalRequest metricEvalReq;
 			NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params convertMetricToEvalReq = {NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params_STRUCT_SIZE};
@@ -92,10 +112,10 @@ namespace Metrics{
 		return true;		
 	}
 	
-	bool configureConfigImage(ctxProfilerData &ctx_data,const vector<std::string>& metricNames){
+bool CuptiMetrics::configureConfigImage(ctxProfilerData &ctx_data){
 		try{
 			vector<NVPA_RawMetricRequest> rawMetricRequests;
-			if(!getMetricRequests(ctx_data,metricNames,rawMetricRequests)){
+			if(!getMetricRequests(ctx_data,rawMetricRequests)){
 				//need error checking
 				return false;
 			}
@@ -190,36 +210,108 @@ namespace Metrics{
 		}
 	}
 
-}
-	
-CuptiMetrics::CuptiMetrics():metricToPWFormula(&Metrics::_metricToPWFormula),metricCodeMap(&Metrics::_metricCodeMap){
+bool CuptiMetrics::getMetricsDatafromContextData(const ctxProfilerData &ctx){
+	try{
+		if (!ctx.counterDataImage.size())
+		{
+			cout << "Counter Data Image is empty!\n";
+			return false;
+		}
+		NVPW_CUDA_MetricsEvaluator_CalculateScratchBufferSize_Params calculateScratchBufferSizeParam = {NVPW_CUDA_MetricsEvaluator_CalculateScratchBufferSize_Params_STRUCT_SIZE};
+		calculateScratchBufferSizeParam.pChipName = ctx.dev_prop.name;
+		calculateScratchBufferSizeParam.pCounterAvailabilityImage = ctx.counterAvailabilityImage.data();
+		NVPW_ERROR_CHECK(NVPW_CUDA_MetricsEvaluator_CalculateScratchBufferSize(&calculateScratchBufferSizeParam));
 
-}
+		vector<uint8_t> scratchBuffer(calculateScratchBufferSizeParam.scratchBufferSize);
+		NVPW_CUDA_MetricsEvaluator_Initialize_Params metricEvaluatorInitializeParams = {NVPW_CUDA_MetricsEvaluator_Initialize_Params_STRUCT_SIZE};
+		metricEvaluatorInitializeParams.scratchBufferSize = scratchBuffer.size();
+		metricEvaluatorInitializeParams.pScratchBuffer = scratchBuffer.data();
+		metricEvaluatorInitializeParams.pChipName = ctx.dev_prop.name;
+		metricEvaluatorInitializeParams.pCounterAvailabilityImage = ctx.counterAvailabilityImage.data();
+		metricEvaluatorInitializeParams.pCounterDataImage = ctx.counterDataImage.data();
+		metricEvaluatorInitializeParams.counterDataImageSize = ctx.counterDataImage.size();
+		NVPW_ERROR_CHECK(NVPW_CUDA_MetricsEvaluator_Initialize(&metricEvaluatorInitializeParams));
+		NVPW_MetricsEvaluator* metricEvaluator = metricEvaluatorInitializeParams.pMetricsEvaluator;
+		
+		NVPW_CounterData_GetNumRanges_Params getNumRangesParams = { NVPW_CounterData_GetNumRanges_Params_STRUCT_SIZE };
+		getNumRangesParams.pCounterDataImage = ctx.counterDataImage.data();
+		NVPW_ERROR_CHECK(NVPW_CounterData_GetNumRanges(&getNumRangesParams));
 
-bool CuptiMetrics::validMetric(string metric){
-	if ( metricToPWFormula->find(metric) == metricToPWFormula->end() ) {
-		return false;
-	} 
-	else {
-		return true;
+		cout << "\n" << setw(40) << left << "Range Name"
+				  << setw(100) << left        << "Metric Name"
+				  << "Metric Value" << endl;
+		cout << setfill('-') << setw(160) << "" << setfill(' ') << endl;
+
+		for (string metricName : metricNames)
+		{
+			NVPW_MetricEvalRequest metricEvalRequest;
+			NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params convertMetricToEvalRequest = {NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params_STRUCT_SIZE};
+			convertMetricToEvalRequest.pMetricsEvaluator = metricEvaluator;
+			convertMetricToEvalRequest.pMetricName = metricName.c_str();
+			convertMetricToEvalRequest.pMetricEvalRequest = &metricEvalRequest;
+			convertMetricToEvalRequest.metricEvalRequestStructSize = NVPW_MetricEvalRequest_STRUCT_SIZE;
+			NVPW_ERROR_CHECK(NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest(&convertMetricToEvalRequest));
+
+			for (size_t rangeIndex = 0; rangeIndex < getNumRangesParams.numRanges; ++rangeIndex)
+			{
+				NVPW_Profiler_CounterData_GetRangeDescriptions_Params getRangeDescParams = { NVPW_Profiler_CounterData_GetRangeDescriptions_Params_STRUCT_SIZE };
+				getRangeDescParams.pCounterDataImage = ctx.counterDataImage.data();
+				getRangeDescParams.rangeIndex = rangeIndex;
+				NVPW_ERROR_CHECK(NVPW_Profiler_CounterData_GetRangeDescriptions(&getRangeDescParams));
+				vector<const char*> descriptionPtrs(getRangeDescParams.numDescriptions);
+				getRangeDescParams.ppDescriptions = descriptionPtrs.data();
+				NVPW_ERROR_CHECK( NVPW_Profiler_CounterData_GetRangeDescriptions(&getRangeDescParams));
+
+				string rangeName;
+				for (size_t descriptionIndex = 0; descriptionIndex < getRangeDescParams.numDescriptions; ++descriptionIndex)
+				{
+					if (descriptionIndex)
+					{
+						rangeName += "/";
+					}
+					rangeName += descriptionPtrs[descriptionIndex];
+				}
+				
+				NVPW_MetricsEvaluator_SetDeviceAttributes_Params setDeviceAttribParams = { NVPW_MetricsEvaluator_SetDeviceAttributes_Params_STRUCT_SIZE };
+				setDeviceAttribParams.pMetricsEvaluator = metricEvaluator;
+				setDeviceAttribParams.pCounterDataImage = ctx.counterDataImage.data();
+				setDeviceAttribParams.counterDataImageSize = ctx.counterDataImage.size();
+				NVPW_ERROR_CHECK(NVPW_MetricsEvaluator_SetDeviceAttributes(&setDeviceAttribParams));
+
+				double metricValue;
+				NVPW_MetricsEvaluator_EvaluateToGpuValues_Params evaluateToGpuValuesParams = { NVPW_MetricsEvaluator_EvaluateToGpuValues_Params_STRUCT_SIZE };
+				evaluateToGpuValuesParams.pMetricsEvaluator = metricEvaluator;
+				evaluateToGpuValuesParams.pMetricEvalRequests = &metricEvalRequest;
+				evaluateToGpuValuesParams.numMetricEvalRequests = 1;
+				evaluateToGpuValuesParams.metricEvalRequestStructSize = NVPW_MetricEvalRequest_STRUCT_SIZE;
+				evaluateToGpuValuesParams.metricEvalRequestStrideSize = sizeof(NVPW_MetricEvalRequest);
+				evaluateToGpuValuesParams.pCounterDataImage = ctx.counterDataImage.data();
+				evaluateToGpuValuesParams.counterDataImageSize = ctx.counterDataImage.size();
+				evaluateToGpuValuesParams.rangeIndex = rangeIndex;
+				evaluateToGpuValuesParams.isolated = true;
+				evaluateToGpuValuesParams.pMetricValues = &metricValue;
+				NVPW_ERROR_CHECK(NVPW_MetricsEvaluator_EvaluateToGpuValues(&evaluateToGpuValuesParams));
+				
+				cout << setw(40) << left << rangeName << setw(100)
+						  << left << metricName << metricValue << endl;
+				string record[3];
+				//={rangeName,metricName,to_string(metricValue)};
+				MetricRecord metricRecord;
+				results.push_back(metricRecord);
+			}
+		}
+		
+		NVPW_MetricsEvaluator_Destroy_Params metricEvaluatorDestroyParams = { NVPW_MetricsEvaluator_Destroy_Params_STRUCT_SIZE };
+		metricEvaluatorDestroyParams.pMetricsEvaluator = metricEvaluator;
+		NVPW_ERROR_CHECK(NVPW_MetricsEvaluator_Destroy(&metricEvaluatorDestroyParams));
 	}
-}
-
-string CuptiMetrics::getFormula(int metricCode){
-	if ( metricCodeMap->find(metricCode) != metricCodeMap->end() ){
-		return getFormula((*metricCodeMap)[metricCode]);
-	} 
-	else {
-		throw std::runtime_error("metric code "+ to_string(metricCode) +" not found"); 
+	catch(exception& e ){
+		cout << e.what() << endl;
+		exit(EXIT_FAILURE);
 	}
-}
-
-string CuptiMetrics::getFormula(string metric){
-	if ( metricToPWFormula->find(metric) != metricToPWFormula->end() ){
-		return (*metricToPWFormula)[metric];
-	} 
-	else {
-		throw std::runtime_error("metric not found"); 
+	catch(... ){
+		cout << "unknown failure" << endl;
+		exit(EXIT_FAILURE);
 	}
+	return true;
 }
-

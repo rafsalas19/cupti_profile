@@ -13,21 +13,19 @@
 #include "cupti_callbacks.h"
 #include "cupti_profiler_target.h"
 #include "cupti_target.h"
-#include "../include/cuptiMetrics.h"
-
+#include "../include/PWMetrics.h"
+#include "../include/utils.h"
 using namespace std;
 
 mutex ctx_data_mutex;
 
 unordered_map<CUcontext, ctxProfilerData> ctx_data_map;
 
+CuptiMetrics cupMetrics;
 
 void print_context(const ctxProfilerData &ctx_data){
-	cout << endl << "Context " << ctx_data.ctx << ", device " << ctx_data.dev_id << " (" << ctx_data.dev_prop.name << ") session " << ctx_data.iterations << ":" << endl;
-    //PrintMetricValues(ctx_data.dev_prop.name, ctx_data.counterDataImage, metricNames, ctx_data.counterAvailabilityImage.data());
-	
+	cout << endl << "Context " << ctx_data.ctx << ", device " << ctx_data.dev_id << " (" << ctx_data.dev_prop.name << ") session " << ctx_data.iterations << ":" << endl;	
 }
-
 
 void initialize_ctx_data(ctxProfilerData &ctx_data){
 	// CUPTI Profiler API + NVPWinitialization
@@ -52,7 +50,7 @@ void initialize_ctx_data(ctxProfilerData &ctx_data){
 		getCounterAvailabilityParams.pCounterAvailabilityImage = ctx_data.counterAvailabilityImage.data();
 		CUPTI_API_CALL(cuptiProfilerGetCounterAvailability(&getCounterAvailabilityParams));
 		
-		if(!Metrics::configureConfigImage(ctx_data,metricNames)){
+		if(!cupMetrics.configureConfigImage(ctx_data)){
 			throw std::runtime_error("Failed to create configImage/counterDataPrefixImage for context");
 		}
 		
@@ -128,7 +126,7 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
                     {
                         endSession(ctx_data_map[ctx]);
 						cout << "End CUPTI_CB_DOMAIN_DRIVER_API: ";
-						print_context(ctx_data_map[ctx]);
+
                         ctx_data_map[ctx].curRanges = 0;
                     }
 
@@ -154,9 +152,6 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
 	
 		if (cbid == CUPTI_CBID_RESOURCE_CONTEXT_CREATED)// contex should be created by default on the first CUDA runtime API call
 		{
-			for(int i =0;i<metricNames.size();++i){
-				std::cout<<metricNames[i]<<endl;
-			}
 			CUpti_ResourceData const * res_data = static_cast<CUpti_ResourceData const *>(cbdata);
             CUcontext ctx = res_data->context;
 			ctxProfilerData data = { };
@@ -241,6 +236,10 @@ void endSession(ctxProfilerData &ctx_data){
 		CUpti_Profiler_EndSession_Params endSessionParams = { CUpti_Profiler_EndSession_Params_STRUCT_SIZE };
 		endSessionParams.ctx = ctx_data.ctx;
 		CUPTI_API_CALL(cuptiProfilerEndSession(&endSessionParams));
+
+		print_context(ctx_data);
+		
+		cupMetrics.getMetricsDatafromContextData(ctx_data);
 
 		// Clear counterDataImage 
 		CUpti_Profiler_CounterDataImage_Initialize_Params initializeParams = { CUpti_Profiler_CounterDataImage_Initialize_Params_STRUCT_SIZE };

@@ -28,7 +28,7 @@ cupti_profile: main.o
 main.o: main.cu
 	nvcc $(NVCCFLAGS) -c $(INCLUDES) $(LIBS) $< -o $(OUTDIR)/$@
 
-libcuProfile.so:$(SRC)/* ./include/profileSession.h ./include/cuptiMetrics.h ./include/utils.h
+libcuProfile.so:$(SRC)/* ./include/profileSession.h ./include/cuptiMetrics.h ./include/utils.h ./include/PWMetrics.h
 	nvcc $(SRC)/* -lcuda -lcupti -lnvperf_host -lnvperf_target  $(INCLUDES) $(LIBS) -Ldl -Xcompiler -fPIC --shared -o $(OUTDIR)/$@ 
 
 clean:
