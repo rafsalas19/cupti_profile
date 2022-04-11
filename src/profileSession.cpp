@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include "../include/cuptiErrorCheck.h"
-#include "../include/profileSession.h"
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 #include "nvperf_host.h"
@@ -15,6 +13,9 @@
 #include "cupti_target.h"
 #include "../include/PWMetrics.h"
 #include "../include/utils.h"
+#include "../include/cuptiErrorCheck.h"
+#include "../include/profileSession.h"
+
 using namespace std;
 
 mutex ctx_data_mutex;
@@ -23,8 +24,11 @@ unordered_map<CUcontext, ctxProfilerData> ctx_data_map;
 
 CuptiMetrics cupMetrics;
 
-void print_context(const ctxProfilerData &ctx_data){
-	cout << endl << "Context " << ctx_data.ctx << ", device " << ctx_data.dev_id << " (" << ctx_data.dev_prop.name << ") session " << ctx_data.iterations << ":" << endl;	
+CUpti_SubscriberHandle cupti_subscriber;
+
+void printContextMetrics(const ctxProfilerData &ctx_data){
+	cout << endl << "Context " << ctx_data.ctx << ", device " << ctx_data.dev_id << " (" << ctx_data.dev_prop.name << ") session " << ctx_data.iterations << ":" << endl;
+	cupMetrics.printMetricRecords(ctx_data);
 }
 
 void initialize_ctx_data(ctxProfilerData &ctx_data){
@@ -116,25 +120,24 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
 			// On entry, enable / update profiling as needed
             if (data->callbackSite == CUPTI_API_ENTER)
             {
-                // Check for this context in the configured contexts
-                // If not configured, it isn't compatible with profiling
                 ctx_data_mutex.lock();
-                if (ctx_data_map.count(ctx) > 0)
+                if (ctx_data_map.count(ctx) > 0)//look for the first context data structure as it should have been created if compute capability >=7.0
                 {
                     // If at maximum number of ranges, end session and reset
                     if (ctx_data_map[ctx].curRanges == ctx_data_map[ctx].maxNumRanges)
                     {
                         endSession(ctx_data_map[ctx]);
-						cout << "End CUPTI_CB_DOMAIN_DRIVER_API: ";
-
+						//printContextMetrics(ctx_data_map[ctx]);
                         ctx_data_map[ctx].curRanges = 0;
                     }
 
                     // If no currently enabled session on this context, start one
-                    if (ctx_data_map[ctx].curRanges == 0)
+                    if (ctx_data_map[ctx].curRanges == 0 && ctx_data_map[ctx].iterations < ctx_data_map[ctx].maxSessions)
                     {
+
                         initialize_ctx_data(ctx_data_map[ctx]);
                         startSession(ctx_data_map[ctx]);
+
                     }
 
                     // Increment curRanges
@@ -142,11 +145,7 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
                 }
                 ctx_data_mutex.unlock();			
 			}
-
 		}
-		
-		
-
 	}
 	else if (domain == CUPTI_CB_DOMAIN_RESOURCE){
 	
@@ -156,18 +155,22 @@ void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbi
             CUcontext ctx = res_data->context;
 			ctxProfilerData data = { };
 			data.ctx = ctx;
+			
+			try{
+				RUNTIME_API_CALL(cudaGetDevice(&(data.dev_id)));
 
-            RUNTIME_API_CALL(cudaGetDevice(&(data.dev_id)));
-
-            RUNTIME_API_CALL(cudaGetDeviceProperties(&(data.dev_prop), data.dev_id));
-
+				RUNTIME_API_CALL(cudaGetDeviceProperties(&(data.dev_prop), data.dev_id));
+			}
+			catch(exception& e ){
+				cout << e.what() << endl;
+				exit(EXIT_FAILURE);
+			}
+			
 			ctx_data_mutex.lock();
 			if (data.dev_prop.major >= 7) //check compute capability 
             {
                ctx_data_map[ctx] = data;
                initialize_ctx_data(ctx_data_map[ctx]);
-			   cout << "CUPTI_CB_DOMAIN_RESOURCE: ";
-			   print_context(ctx_data_map[ctx]);
             }
             else if (ctx_data_map.count(ctx))
             {
@@ -209,7 +212,7 @@ void startSession(ctxProfilerData &ctx_data){
 		CUpti_Profiler_EnableProfiling_Params enableProfilingParams = { CUpti_Profiler_EnableProfiling_Params_STRUCT_SIZE };
 		enableProfilingParams.ctx = ctx_data.ctx;
 		CUPTI_API_CALL(cuptiProfilerEnableProfiling(&enableProfilingParams));
-
+		ctx_data.results.clear();
 		ctx_data.iterations++;
 	}
 	catch(exception& e ){
@@ -236,9 +239,8 @@ void endSession(ctxProfilerData &ctx_data){
 		CUpti_Profiler_EndSession_Params endSessionParams = { CUpti_Profiler_EndSession_Params_STRUCT_SIZE };
 		endSessionParams.ctx = ctx_data.ctx;
 		CUPTI_API_CALL(cuptiProfilerEndSession(&endSessionParams));
-
-		print_context(ctx_data);
 		
+		//save results
 		cupMetrics.getMetricsDatafromContextData(ctx_data);
 
 		// Clear counterDataImage 
@@ -260,8 +262,8 @@ void endSession(ctxProfilerData &ctx_data){
 }
 
 void exitCB(){
-	
-	/*ctx_data_mutex.lock();
+
+	ctx_data_mutex.lock();
 
     for (auto itr = ctx_data_map.begin(); itr != ctx_data_map.end(); ++itr)
     {
@@ -269,20 +271,31 @@ void exitCB(){
 
         if (data.curRanges > 0)
         {
+			printContextMetrics(data);
+			writeTofile("metricDump", data.results,data.dev_prop.name, *(cupMetrics.getMetricVector()));
+			ctxProfilerData data2;
+			readtoContext("metricDump",data2);
             data.curRanges = 0;
+			
         }
     }
 
-    ctx_data_mutex.unlock();*/
+    ctx_data_mutex.unlock();
 	
 }
 
 void subscribeCB(){
-		CUpti_SubscriberHandle subscriber;
-    	CUPTI_API_CALL(cuptiSubscribe(&subscriber, (CUpti_CallbackFunc)(callback), NULL));
-    	CUPTI_API_CALL(cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_CONTEXT_CREATED));
-    	CUPTI_API_CALL(cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel));
+		//CUpti_SubscriberHandle subscriber;
+    	CUPTI_API_CALL(cuptiSubscribe(&cupti_subscriber, (CUpti_CallbackFunc)(callback), NULL));
+    	CUPTI_API_CALL(cuptiEnableCallback(1, cupti_subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_CONTEXT_CREATED));
+    	CUPTI_API_CALL(cuptiEnableCallback(1, cupti_subscriber, CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel));
    	
 	// Register callback for application exit
     	atexit(exitCB);	
+}
+
+void unSubscribeCB(){
+		CUPTI_API_CALL(cuptiUnsubscribe (  cupti_subscriber ));
+    	//CUPTI_API_CALL(cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_CONTEXT_CREATED));
+    	//CUPTI_API_CALL(cuptiEnableCallback(1, subscriber, CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel));
 }

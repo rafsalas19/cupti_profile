@@ -34,9 +34,6 @@ using namespace std;
 
 static bool injectionInitialized = false;
 
-
-
-
 extern "C" DLLEXPORT int InitializeInjection()
 {
 

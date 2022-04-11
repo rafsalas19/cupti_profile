@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <iomanip>
 using namespace std;
 
 struct ctxProfilerData;
@@ -14,11 +15,15 @@ struct ctxProfilerData;
 
 
 struct MetricRecord{
-	MetricRecord(string _rangeName,string _metricName, string _metricValue){}
+	MetricRecord(string _rangeName,string _metricName, double _metricValue): rangeName(_rangeName),metricName(_metricName),metricValue(_metricValue){}
 	MetricRecord(){}
+	void printRecord(int w1=40,int w2=100){
+		cout << setw(w1) << left << rangeName << setw(w2)
+		<< left << metricName << metricValue << endl;		
+	}
 	string rangeName;
 	string metricName; 
-	string metricValue;
+	double metricValue;
 };
 
 class CuptiMetrics{
@@ -32,9 +37,10 @@ public:
 	//create counter Availability Image + counter data prefix image
 	bool configureConfigImage(ctxProfilerData &ctx_data);
 	//gather the metric values into a record
-	bool getMetricsDatafromContextData(const ctxProfilerData &ctx);
+	bool getMetricsDatafromContextData( ctxProfilerData &ctx);
 	
 	vector<string> * getMetricVector(){return &metricNames;}
+	void printMetricRecords(const ctxProfilerData &ctx);
 	
 private:
 	//create raw metric request for perf works
@@ -42,7 +48,7 @@ private:
 	unordered_map<string, string> *metricToPWFormula;
 	unordered_map<unsigned int, string> *metricCodeMap;	
 	vector<string> metricNames;
-	vector <MetricRecord> results; 
+	 
 
 };
 

@@ -16,6 +16,9 @@
 #include "../include/cuptiMetrics.h"
 using namespace std;
 
+struct MetricRecord;
+
+//holds all context data
 struct ctxProfilerData
 {
     CUcontext       ctx;
@@ -27,9 +30,11 @@ struct ctxProfilerData
     vector<uint8_t> counterDataPrefixImage;
     vector<uint8_t> counterDataScratchBufferImage;
     vector<uint8_t> configImage;
+	vector <MetricRecord> results;
     int             maxNumRanges;
     int             curRanges;
     int             maxRangeNameLength;
+	int				maxSessions;
     int             iterations; // Count of sessions
 	CUpti_ProfilerRange profilerRange;// CUPTI_AutoRange or CUPTI_UserRange;
 
@@ -49,15 +54,14 @@ struct ctxProfilerData
         }
         else
         {
-            maxNumRanges = 10;
+            maxNumRanges = 3;
         }
+		maxSessions =1;
     };
 };
 
+//metric handler
 extern CuptiMetrics cupMetrics;
-
-
-extern std::vector<std::string> metricNames;
 
 void startSession(ctxProfilerData &ctx_data);
 
@@ -67,15 +71,16 @@ void subscribeCB();
 	
 void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, void const * cbdata);
 
+//what to do at the end of the run
 void exitCB();
 		
+void printContextMetrics(const ctxProfilerData &ctx_data);
 	
-void print_context(const ctxProfilerData &ctx_data);
+extern mutex ctx_data_mutex;//protext context map
 	
-extern mutex ctx_data_mutex;
-	
-extern unordered_map<CUcontext, ctxProfilerData> ctx_data_map;
+extern unordered_map<CUcontext, ctxProfilerData> ctx_data_map; //holds all contexts
 
+extern CUpti_SubscriberHandle cupti_subscriber;
 
 
 #endif

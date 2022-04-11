@@ -6,7 +6,7 @@
 #include <nvperf_host.h>
 #include <nvperf_cuda_host.h>
 #include <nvperf_target.h>
-#include <iomanip>
+
 using namespace std;
 
 
@@ -210,7 +210,7 @@ bool CuptiMetrics::configureConfigImage(ctxProfilerData &ctx_data){
 		}
 	}
 
-bool CuptiMetrics::getMetricsDatafromContextData(const ctxProfilerData &ctx){
+bool CuptiMetrics::getMetricsDatafromContextData( ctxProfilerData &ctx){
 	try{
 		if (!ctx.counterDataImage.size())
 		{
@@ -236,12 +236,7 @@ bool CuptiMetrics::getMetricsDatafromContextData(const ctxProfilerData &ctx){
 		NVPW_CounterData_GetNumRanges_Params getNumRangesParams = { NVPW_CounterData_GetNumRanges_Params_STRUCT_SIZE };
 		getNumRangesParams.pCounterDataImage = ctx.counterDataImage.data();
 		NVPW_ERROR_CHECK(NVPW_CounterData_GetNumRanges(&getNumRangesParams));
-
-		cout << "\n" << setw(40) << left << "Range Name"
-				  << setw(100) << left        << "Metric Name"
-				  << "Metric Value" << endl;
-		cout << setfill('-') << setw(160) << "" << setfill(' ') << endl;
-
+		
 		for (string metricName : metricNames)
 		{
 			NVPW_MetricEvalRequest metricEvalRequest;
@@ -292,12 +287,8 @@ bool CuptiMetrics::getMetricsDatafromContextData(const ctxProfilerData &ctx){
 				evaluateToGpuValuesParams.pMetricValues = &metricValue;
 				NVPW_ERROR_CHECK(NVPW_MetricsEvaluator_EvaluateToGpuValues(&evaluateToGpuValuesParams));
 				
-				cout << setw(40) << left << rangeName << setw(100)
-						  << left << metricName << metricValue << endl;
-				string record[3];
-				//={rangeName,metricName,to_string(metricValue)};
-				MetricRecord metricRecord;
-				results.push_back(metricRecord);
+				MetricRecord metricRecord(rangeName,metricName,metricValue);
+				ctx.results.push_back(metricRecord);
 			}
 		}
 		
@@ -314,4 +305,18 @@ bool CuptiMetrics::getMetricsDatafromContextData(const ctxProfilerData &ctx){
 		exit(EXIT_FAILURE);
 	}
 	return true;
+}
+
+
+void CuptiMetrics::printMetricRecords(const ctxProfilerData &ctx){
+	int w1=40;
+	int w2 = 100;
+	cout << "\n" << setw(w1) << left << "Range Name"
+			  << setw(w2) << left        << "Metric Name"
+			  << "Metric Value" << endl;
+	cout << setfill('-') << setw(160) << "" << setfill(' ') << endl;
+	
+	for(auto mRecord : ctx.results){
+		mRecord.printRecord(w1,w2);
+	}
 }
