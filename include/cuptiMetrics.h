@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include <iomanip>
+#include <sstream>
 using namespace std;
 
 struct ctxProfilerData;
@@ -20,6 +21,21 @@ struct MetricRecord{
 	void printRecord(int w1=40,int w2=100){
 		cout << setw(w1) << left << rangeName << setw(w2)
 		<< left << metricName << metricValue << endl;		
+	}
+	void serialize(size_t &size, string &serialStr){
+		serialStr=rangeName+":"+metricName+":"+to_string(metricValue);
+		size=serialStr.size();
+	}
+	void deserialize(string &str){
+		string tmpDbl;		
+		int end =str.find(':');
+		rangeName=str.substr(0, end);
+		str=str.substr(end+1,str.size());
+		end =str.find(':');
+		metricName=str.substr(0, end);
+		tmpDbl=str.substr(end+1,str.size());
+		metricValue= stod(tmpDbl);
+		//cout<<rangeName<<" "<<metricName<<" "<< tmpDbl<<endl;
 	}
 	string rangeName;
 	string metricName; 
