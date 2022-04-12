@@ -7,9 +7,13 @@
 #include <iomanip>
 using namespace std;
 
-
-
-
+void deserialize(string &str,string delimiter,vector<string> &tokens){
+	while(str.size()> 1){		
+		int end =str.find(delimiter);
+		tokens.push_back(str.substr(0, end));
+		str=str.substr(end+1,str.size());
+	}
+}
 
 bool writeTofile(std::string pFileName, const std::vector<MetricRecord>& metricRecords,string chipname, const std::vector<std::string>& metricNames ){
 	try{
@@ -81,7 +85,7 @@ bool readtoContext( std::string pFileName,ctxProfilerData &ctx){
 			metricFile.read((char*)&strSize,sizeof(strSize));
 			serialStr.resize(strSize);
 			metricFile.read((char*)&serialStr[0],strSize);
-			ctx.push_back(mr);
+			ctx.results.push_back(mr);
 		}
 		
 		metricFile.close();

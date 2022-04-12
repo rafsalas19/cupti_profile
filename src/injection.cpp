@@ -48,7 +48,7 @@ extern "C" DLLEXPORT int InitializeInjection()
 			cupMetrics.getMetricVector()->push_back(i->second);
 		}
 		
-		subscribeCB();
+		ProfileSession::subscribeCB();
 
 	}
 

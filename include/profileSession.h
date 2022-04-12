@@ -60,21 +60,27 @@ struct ctxProfilerData
     };
 };
 
+namespace ProfileSession{
+	void startSession(ctxProfilerData &ctx_data);
+
+	void endSession(ctxProfilerData &ctx_data);
+	
+	void subscribeCB();
+	
+	void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, void const * cbdata);
+
+	//what to do at the end of the run
+	void exitCB();
+		
+	void printContextMetrics(const ctxProfilerData &ctx_data);
+		
+	void unSubscribeCB();	
+}
+
+
+
 //metric handler
 extern CuptiMetrics cupMetrics;
-
-void startSession(ctxProfilerData &ctx_data);
-
-void endSession(ctxProfilerData &ctx_data);
-	
-void subscribeCB();
-	
-void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, void const * cbdata);
-
-//what to do at the end of the run
-void exitCB();
-		
-void printContextMetrics(const ctxProfilerData &ctx_data);
 	
 extern mutex ctx_data_mutex;//protext context map
 	
