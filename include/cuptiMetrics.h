@@ -16,27 +16,11 @@ struct ctxProfilerData;
 
 
 struct MetricRecord{
-	MetricRecord(string _rangeName,string _metricName, double _metricValue): rangeName(_rangeName),metricName(_metricName),metricValue(_metricValue){}
-	MetricRecord(){}
-	void printRecord(int w1=40,int w2=100){
-		cout << setw(w1) << left << rangeName << setw(w2)
-		<< left << metricName << metricValue << endl;		
-	}
-	void serialize(size_t &size, string &serialStr){
-		serialStr=rangeName+":"+metricName+":"+to_string(metricValue);
-		size=serialStr.size();
-	}
-	void deserialize(string &str){
-		string tmpDbl;		
-		int end =str.find(':');
-		rangeName=str.substr(0, end);
-		str=str.substr(end+1,str.size());
-		end =str.find(':');
-		metricName=str.substr(0, end);
-		tmpDbl=str.substr(end+1,str.size());
-		metricValue= stod(tmpDbl);
-		//cout<<rangeName<<" "<<metricName<<" "<< tmpDbl<<endl;
-	}
+	MetricRecord(string _rangeName,string _metricName, double _metricValue);
+	MetricRecord();
+	void printRecord(int w1=40,int w2=100);
+	void serialize(size_t &size, string &serialStr);
+	void deserialize(string &str);
 	string rangeName;
 	string metricName; 
 	double metricValue;

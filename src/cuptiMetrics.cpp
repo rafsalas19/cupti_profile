@@ -10,8 +10,30 @@
 using namespace std;
 
 
+MetricRecord::MetricRecord(string _rangeName,string _metricName, double _metricValue): rangeName(_rangeName),metricName(_metricName),metricValue(_metricValue){}
+MetricRecord::MetricRecord(){}
 
-//mirroring nvidia cupti sample extension. Specificly Metrics portion
+void MetricRecord::printRecord(int w1,int w2){
+	cout << setw(w1) << left << rangeName << setw(w2)
+	<< left << metricName << metricValue << endl;		
+}
+void MetricRecord::serialize(size_t &size, string &serialStr){
+	serialStr=rangeName+":"+metricName+":"+to_string(metricValue);
+	size=serialStr.size();
+}
+void MetricRecord::deserialize(string &str){
+	string tmpDbl;		
+	int end =str.find(':');
+	rangeName=str.substr(0, end);
+	str=str.substr(end+1,str.size());
+	end =str.find(':');
+	metricName=str.substr(0, end);
+	tmpDbl=str.substr(end+1,str.size());
+	metricValue= stod(tmpDbl);
+	//cout<<rangeName<<" "<<metricName<<" "<< tmpDbl<<endl;
+}
+
+
 
 CuptiMetrics::CuptiMetrics():metricToPWFormula(&Metrics::_metricToPWFormula),metricCodeMap(&Metrics::_metricCodeMap){
 

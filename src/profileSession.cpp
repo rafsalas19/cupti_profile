@@ -15,6 +15,7 @@
 #include "../include/utils.h"
 #include "../include/cuptiErrorCheck.h"
 #include "../include/profileSession.h"
+#include "../include/cuptiMetrics.h"
 
 using namespace std;
 
@@ -25,6 +26,30 @@ unordered_map<CUcontext, ctxProfilerData> ctx_data_map;
 CuptiMetrics cupMetrics;
 
 CUpti_SubscriberHandle cupti_subscriber;
+
+
+
+ctxProfilerData::ctxProfilerData() : curRanges(), maxRangeNameLength(128), iterations(),profilerRange(CUPTI_AutoRange)// Initialize fields, with env var overrides
+{
+	char * env_var = getenv("INJECTION_KERNEL_COUNT");
+	if (env_var != NULL)
+	{
+		int val = atoi(env_var);
+		if (val < 1)
+		{
+			cerr << "Read " << val << " kernels from INJECTION_KERNEL_COUNT, but must be >= 1; defaulting to 10." << endl;
+			val = 10;
+		}
+		maxNumRanges = val;
+	}
+	else
+	{
+		maxNumRanges = 3;
+	}
+	maxSessions =1;
+};
+
+
 
 namespace ProfileSession{
 
@@ -150,7 +175,7 @@ namespace ProfileSession{
 			}
 		}
 		else if (domain == CUPTI_CB_DOMAIN_RESOURCE){
-		
+
 			if (cbid == CUPTI_CBID_RESOURCE_CONTEXT_CREATED)// contex should be created by default on the first CUDA runtime API call
 			{
 				CUpti_ResourceData const * res_data = static_cast<CUpti_ResourceData const *>(cbdata);

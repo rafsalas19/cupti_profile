@@ -34,6 +34,44 @@ using namespace std;
 
 static bool injectionInitialized = false;
 
+
+void deserialize_codes(string &str,vector<int> &tokens){
+	while(str.size()> 1){
+		
+		int end =str.find(",");
+		if(end<3){
+			end=str.size();
+		}
+		string tmp =str.substr(0, end);
+		int code;
+		try{
+			cout<<tmp<<endl;
+			code=stoi(tmp);	
+			if(CODE_MAP_MIN_KEY > code || CODE_MAP_MAX_KEY < code){
+				throw std::runtime_error("Code is out of bounds.");
+			}
+			tokens.push_back(code);
+		}
+        catch (const std::invalid_argument & e) {
+            std::cout << e.what() << ". Invalid code format "+tmp +". Skipping. \n";
+			
+        }
+        catch (const std::out_of_range & e) {
+            std::cout << e.what() << ". Invalid code format "+tmp +" Skipping. \n";
+        }
+		catch(exception& e ){
+			 std::cout << e.what() << " Skipping. \n";
+		}
+		
+		if(end==str.size()) break;
+		str=str.substr(end+1,str.size());
+
+	}
+}
+
+
+
+
 extern "C" DLLEXPORT int InitializeInjection()
 {
 
@@ -41,13 +79,31 @@ extern "C" DLLEXPORT int InitializeInjection()
 	if (injectionInitialized == false)
 	{
 		injectionInitialized = true;
-
-		Metrics::metricList mlist = Metrics::get_metricList();
-
-		for( Metrics::metricList::iterator i= mlist.begin(); i != mlist.end(); i++){
-			cupMetrics.getMetricVector()->push_back(i->second);
-		}
 		
+		char * env_var = getenv("CUPTI_METRIC_CODES");
+		if(env_var!=NULL){
+			string str =env_var;
+			vector<int> metricCodes;
+			deserialize_codes(str,metricCodes);
+			
+			for (auto& code : metricCodes){
+				try{
+					cupMetrics.getMetricVector()->push_back(cupMetrics.getFormula(code));
+				}
+				catch(exception& e ){
+					std::cout << e.what() << " Skipping. \n";
+					continue;
+				}			
+			}
+		}
+		if(env_var==NULL ||cupMetrics.getMetricVector()->size()==0){
+			cout<< "Metrics not provided to env variable CUPTI_METRIC_CODES, running default metric collection"<<endl;
+			Metrics::metricList mlist = Metrics::get_metricList();
+	
+			for( Metrics::metricList::iterator i= mlist.begin(); i != mlist.end(); i++){
+				cupMetrics.getMetricVector()->push_back(i->second);
+			}			
+		}
 		ProfileSession::subscribeCB();
 
 	}

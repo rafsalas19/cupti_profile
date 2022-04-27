@@ -7,11 +7,9 @@
 #include <stdio.h>
 #include <iostream>
 #include <stdlib.h>
-#include "cuptiErrorCheck.h"
-#include "cuptiMetrics.h"
-#include <getopt.h>
 #include <iomanip>
-#include "../include/PWMetrics.h"
+#include "utils.h"
+
 
 using namespace std;
 string slist[] {"achieved_occupancy",
@@ -146,31 +144,6 @@ string slist[] {"achieved_occupancy",
 "warp_nonpred_execution_efficiency"};
 
 
-
-
-
-struct options_t {
-    char *out_file;
-	char *field_codes;
-	bool list_metrics;
-	int number_kernel_launches;
-	
-};
-
-void get_opts(int argc, char **argv, struct options_t *opts);
-
-void printMetrics(){
-	int w1=40;
-	int w2 = 100;
-	cout << "\n" << setw(w1) << left << "Range Name"<< setw(w2) << left << "Metric Name"<< endl;
-	cout << setfill('-') << setw(160) << "" << setfill(' ') << endl;
-	for (auto itr = Metrics::_metricCodeMap.begin(); itr != Metrics::_metricCodeMap.end(); ++itr){
-		cout << setw(w1) << left << itr->first << setw(w2)<< left << itr->second <<  endl;
-	}
-	
-	
-}
-
 int main(int argc, char* argv[])
 {
 	struct options_t opts;
@@ -184,65 +157,8 @@ int main(int argc, char* argv[])
 	if(opts.field_codes!=NULL ){
 		cout<<opts.field_codes<< endl;
 	}
-	
-	
-	
-	cout<<opts.list_metrics<< " " <<  opts.number_kernel_launches<<endl;
+	//cout<<opts.list_metrics<< " " <<  opts.number_kernel_launches<<endl;
 	cout<<"done"<<endl;
 	return 0;
 }
 
-void get_opts(int argc, char **argv, struct options_t *opts)
-{
-    if (argc == 1)
-    {
-        std::cout << "Usage:" << std::endl;
-        std::cout << "\t--output_file or -o <file_path>." << std::endl;
-		std::cout << "\t--metric_field_codes or -c. Provide comma separated field codes." << std::endl;
-		std::cout << "\t--list_metrics or -l. Provides list of field code to metric mapping." << std::endl;
-		std::cout << "\t--number_kernel_launches or -k. Number of kernel launches before ending the session." << std::endl;
-        exit(0);
-    }
-
-
-    struct option l_opts[] = {
-        {"output_file", no_argument, NULL, 'o'},
-        {"metric_field_codes", no_argument, NULL, 'c'},
-        {"list_metrics", no_argument, NULL, 'l'},
-        {"number_kernel_launches", no_argument, NULL, 'k'}
-	
-    };
-
-    int ind, c;
-	opts->list_metrics =false;
-	opts->number_kernel_launches=1;
-	opts->out_file=NULL;
-	opts->field_codes=NULL;
-	
-    while ((c = getopt_long(argc, argv, ":o:c:k:l", l_opts, &ind)) != -1)
-    {
-        switch (c)
-        {
-			case 0:
-				break;
-			case 'o':
-				opts->out_file = (char *)optarg;
-				break;
-			case 'c'://check if we need to loop
-				opts->field_codes = (char *)optarg; 
-				break;
-			case 'l':
-				opts->list_metrics = true;//std::stod((char *)optarg);
-				break;                                    
-			case 'k':
-				opts->number_kernel_launches = atoi((char *)optarg);
-				break;
-			case ':':
-				std::cerr << argv[0] << ": option -" << (char)optopt << "requires an argument." << std::endl;
-				exit(1); 
-        }
-    }
-	/*for(; ind < argc; ind++){ //when some extra arguments are passed
-      printf("Given extra arguments: %s\n", argv[ind]);
-    }*/
-}

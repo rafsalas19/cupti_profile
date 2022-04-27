@@ -13,10 +13,11 @@
 #include <unordered_map>
 #include <iostream>
 #include<utility>
-#include "../include/cuptiMetrics.h"
+
 using namespace std;
 
 struct MetricRecord;
+class CuptiMetrics;
 
 //holds all context data
 struct ctxProfilerData
@@ -38,26 +39,8 @@ struct ctxProfilerData
     int             iterations; // Count of sessions
 	CUpti_ProfilerRange profilerRange;// CUPTI_AutoRange or CUPTI_UserRange;
 
-    // Initialize fields, with env var overrides
-    ctxProfilerData() : curRanges(), maxRangeNameLength(128), iterations(),profilerRange(CUPTI_AutoRange)
-    {
-        char * env_var = getenv("INJECTION_KERNEL_COUNT");
-        if (env_var != NULL)
-        {
-            int val = atoi(env_var);
-            if (val < 1)
-            {
-                cerr << "Read " << val << " kernels from INJECTION_KERNEL_COUNT, but must be >= 1; defaulting to 10." << endl;
-                val = 10;
-            }
-            maxNumRanges = val;
-        }
-        else
-        {
-            maxNumRanges = 3;
-        }
-		maxSessions =1;
-    };
+    ctxProfilerData();
+
 };
 
 namespace ProfileSession{

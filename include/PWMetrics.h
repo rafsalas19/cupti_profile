@@ -11,12 +11,15 @@ using namespace std;
 
 struct ctxProfilerData;
 
+#define CODE_MAP_MIN_KEY 1000
+#define CODE_MAP_MAX_KEY 1129
 namespace Metrics{
 	typedef std::map<int, string> metricList;
 
 	metricList get_metricList();// create sample metric list
 	
 	static unordered_map<string, string> _metricToPWFormula = {
+		{"achieved_occupancy", "sm__warps_active.avg.pct_of_peak_sustained_active"},
 		{"branch_efficiency", "smsp__sass_average_branch_targets_threads_uniform.pct"},
 		{"cf_executed", "smsp__inst_executed_pipe_cbu.sum"},
 		{"double_precision_fu_utilization", "smsp__inst_executed_pipe_fp64.avg.pct_of_peak_sustained_active"},
