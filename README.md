@@ -1,4 +1,4 @@
-# cupti_profile
+# Cupti_profiler
 
 ## Dependenccies/ Requirements 
 - Cuda Toolkit
@@ -29,7 +29,9 @@ Some modification to file paths may be required
 ###### Controlling metrics and kernel launches
 Set these environmental variables to control profiling
 - "CUPTI_METRIC_CODES" - Provide comma separated metric codes for the applicable metrics you would like to see.
-- "INJECTION_KERNEL_COUNT" - provide the number of Kernel launches you would like to profile per CUDA context
+- "INJECTION_KERNEL_COUNT" - Provide the number of kernel launches you would like to profile per CUDA context.
+
+
 
 ## Kernel codes and Supported metrics:
 | #Code        | #Metric   | # Code     | #Metric    | # Code     | #Metric    |
