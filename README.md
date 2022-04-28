@@ -34,7 +34,7 @@ Set these environmental variables to control profiling
 
 
 ## Kernel codes and Supported metrics:
-| #Code        | #Metric   | # Code     | #Metric    | # Code     | #Metric    |
+| Code         | Metric    | Code       | Metric     |  Code      | Metric     |
 |--------------|-----------|------------|------------|------------|------------|
 |1000|"achieved_occupancy"|1001|"branch_efficiency"|1002|"cf_executed"|
 |1003|"double_precision_fu_utilization"|1004|"dram_read_bytes"|1005|"dram_read_throughput"|
