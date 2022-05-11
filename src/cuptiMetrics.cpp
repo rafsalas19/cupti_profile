@@ -40,12 +40,15 @@ CuptiMetrics::CuptiMetrics():metricToPWFormula(&Metrics::_metricToPWFormula),met
 }
 
 bool CuptiMetrics::validMetric(string metric){
+	//unused
+	/*cout<<"this is metric :"<<metric<<"|"<<endl;
 	if ( metricToPWFormula->find(metric) == metricToPWFormula->end() ) {
-		return false;
+		throw std::runtime_error("metric "+ metric +" not found"); 
 	} 
 	else {
 		return true;
-	}
+	}*/
+	
 }
 
 string CuptiMetrics::getFormula(int metricCode){
@@ -88,11 +91,10 @@ bool CuptiMetrics::getMetricRequests(ctxProfilerData &ctx_data, vector<NVPA_RawM
 		
 		//convert metric into request part 1
 		std::vector<const char*> rawMetricNames;
+		
 		for (auto& metricName : metricNames)
 		{
-			//check if valid metric
-			validMetric(metricName);
-					
+
 			NVPW_MetricEvalRequest metricEvalReq;
 			NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params convertMetricToEvalReq = {NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params_STRUCT_SIZE};
 			convertMetricToEvalReq.pMetricsEvaluator = metricEvaluator;
@@ -139,6 +141,7 @@ bool CuptiMetrics::configureConfigImage(ctxProfilerData &ctx_data){
 			vector<NVPA_RawMetricRequest> rawMetricRequests;
 			if(!getMetricRequests(ctx_data,rawMetricRequests)){
 				//need error checking
+						cout<<"failed to get request "<<endl;;
 				return false;
 			}
 			auto chipName=ctx_data.dev_prop.name;
@@ -243,7 +246,7 @@ bool CuptiMetrics::getMetricsDatafromContextData( ctxProfilerData &ctx){
 		calculateScratchBufferSizeParam.pChipName = ctx.dev_prop.name;
 		calculateScratchBufferSizeParam.pCounterAvailabilityImage = ctx.counterAvailabilityImage.data();
 		NVPW_ERROR_CHECK(NVPW_CUDA_MetricsEvaluator_CalculateScratchBufferSize(&calculateScratchBufferSizeParam));
-
+		cout<<"context in session :"<< ctx<<endl;
 		vector<uint8_t> scratchBuffer(calculateScratchBufferSizeParam.scratchBufferSize);
 		NVPW_CUDA_MetricsEvaluator_Initialize_Params metricEvaluatorInitializeParams = {NVPW_CUDA_MetricsEvaluator_Initialize_Params_STRUCT_SIZE};
 		metricEvaluatorInitializeParams.scratchBufferSize = scratchBuffer.size();
@@ -258,13 +261,14 @@ bool CuptiMetrics::getMetricsDatafromContextData( ctxProfilerData &ctx){
 		NVPW_CounterData_GetNumRanges_Params getNumRangesParams = { NVPW_CounterData_GetNumRanges_Params_STRUCT_SIZE };
 		getNumRangesParams.pCounterDataImage = ctx.counterDataImage.data();
 		NVPW_ERROR_CHECK(NVPW_CounterData_GetNumRanges(&getNumRangesParams));
-		
+
 		for (string metricName : metricNames)
 		{
 			NVPW_MetricEvalRequest metricEvalRequest;
 			NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params convertMetricToEvalRequest = {NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest_Params_STRUCT_SIZE};
 			convertMetricToEvalRequest.pMetricsEvaluator = metricEvaluator;
 			convertMetricToEvalRequest.pMetricName = metricName.c_str();
+			cout<<metricName<<endl<<endl;
 			convertMetricToEvalRequest.pMetricEvalRequest = &metricEvalRequest;
 			convertMetricToEvalRequest.metricEvalRequestStructSize = NVPW_MetricEvalRequest_STRUCT_SIZE;
 			NVPW_ERROR_CHECK(NVPW_MetricsEvaluator_ConvertMetricNameToMetricEvalRequest(&convertMetricToEvalRequest));

@@ -48,6 +48,8 @@ namespace ProfileSession{
 
 	void endSession(ctxProfilerData &ctx_data);
 	
+	void initialize_ctx_data(ctxProfilerData &ctx_data);
+	
 	void subscribeCB();
 	
 	void callback(void * userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, void const * cbdata);

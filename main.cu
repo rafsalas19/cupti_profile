@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <iomanip>
 #include "utils.h"
+#include "include/cupProf/cupProf.h"
 
 
 using namespace std;
@@ -144,20 +145,63 @@ string slist[] {"achieved_occupancy",
 "warp_nonpred_execution_efficiency"};
 
 
+__global__ void add(int n, float *x, float *y)
+{
+  for (int i = 0; i < n; i++)
+      y[i] = x[i] + y[i];
+}
+
+
+void cudaTest(){
+	//cudaSetDevice(0);
+	int N = 1<<20;
+	float *x, *y;
+	cudaMallocManaged((void**)(&x), N*sizeof(float));
+	cudaMallocManaged((void**)(&y), N*sizeof(float));
+
+	 // initialize x and y arrays on the host
+	for (int i = 0; i < N; i++) {
+		x[i] = 1.0f;
+		y[i] = 2.0f;
+	}
+
+	// Run kernel on 1M elements on the GPU
+	add<<<1, 1>>>(N, x, y);
+
+	// Wait for GPU to finish before accessing on host
+	cudaDeviceSynchronize();
+	
+}
+
+
+
 int main(int argc, char* argv[])
 {
-	struct options_t opts;
-	
-	get_opts(argc,argv,&opts);
-
-	
-	if(opts.list_metrics){
-		printMetrics();
+	try{
+		// struct options_t opts;
+		
+		// get_opts(argc,argv,&opts);
+		
+		// if(opts.list_metrics){
+			// printMetrics();
+		// }
+		// if(opts.field_codes!=NULL ){
+			// cout<<opts.field_codes<< endl;
+		// }
+		// cout<<opts.list_metrics<< " " <<  opts.number_kernel_launches<<endl;
+		cupProfiler cprof;
+		//CUcontext cuContext;
+		cudaSetDevice(0);
+		cprof.startSession();
+		
+		void cudaTest();
+		cprof.endSession();
 	}
-	if(opts.field_codes!=NULL ){
-		cout<<opts.field_codes<< endl;
+	catch(exception& e ){
+		cout << e.what() << endl;
+		exit(EXIT_FAILURE);
 	}
-	//cout<<opts.list_metrics<< " " <<  opts.number_kernel_launches<<endl;
+	
 	cout<<"done"<<endl;
 	return 0;
 }

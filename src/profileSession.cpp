@@ -74,6 +74,7 @@ namespace ProfileSession{
 			// Get size of counterAvailabilityImage - in first pass, GetCounterAvailability return size needed for data
 			CUpti_Profiler_GetCounterAvailability_Params getCounterAvailabilityParams = { CUpti_Profiler_GetCounterAvailability_Params_STRUCT_SIZE };
 			getCounterAvailabilityParams.ctx = ctx_data.ctx;
+			cout<<"context in session :"<< ctx_data.ctx<<endl;
 			CUPTI_API_CALL(cuptiProfilerGetCounterAvailability(&getCounterAvailabilityParams));
 			// Allocate sized counterAvailabilityImage
 			ctx_data.counterAvailabilityImage.resize(getCounterAvailabilityParams.counterAvailabilityImageSize);
@@ -99,7 +100,7 @@ namespace ProfileSession{
 			CUPTI_API_CALL(cuptiProfilerCounterDataImageCalculateSize(&calculateSizeParams));
 			// Create counterDataImage
 			ctx_data.counterDataImage.resize(calculateSizeParams.counterDataImageSize);
-
+			
 			// Initialize counterDataImage inside start_session
 			CUpti_Profiler_CounterDataImage_Initialize_Params initializeParams = { CUpti_Profiler_CounterDataImage_Initialize_Params_STRUCT_SIZE };
 			initializeParams.pOptions = &(ctx_data.counterDataImageOptions);
@@ -220,6 +221,7 @@ namespace ProfileSession{
 			beginSessionParams.counterDataScratchBufferSize = ctx_data.counterDataScratchBufferImage.size();
 			beginSessionParams.pCounterDataScratchBuffer = ctx_data.counterDataScratchBufferImage.data();
 			beginSessionParams.ctx = ctx_data.ctx;
+
 			beginSessionParams.maxLaunchesPerPass = ctx_data.maxNumRanges;
 			beginSessionParams.maxRangesPerPass = ctx_data.maxNumRanges;
 			beginSessionParams.pPriv = NULL;
